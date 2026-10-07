@@ -15,7 +15,7 @@ jobs:
             throw "El secret DEV_TOKEN no está configurado."
           }
           if ([string]::IsNullOrEmpty($env:LOCAL_DEV_TOKEN)) {
-            throw "LOCAL_DEV_TOKEN no está configurado en el entorno del runner."
+            throw "LOCAL_DEV_TOKEN no está disponible en el entorno del proceso del runner."
           }
           if ($env:DEV_TOKEN -ceq $env:LOCAL_DEV_TOKEN) {
             Write-Output "Los tokens coinciden"

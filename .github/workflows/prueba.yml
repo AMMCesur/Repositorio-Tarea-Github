@@ -10,15 +10,12 @@ jobs:
     runs-on: self-hosted
     steps:      
       - name: Comparar variables de entorno
-        shell: bash
+        shell: pwsh
         env:
           VAR1: ${{ secrets.DEV_TOKEN }}
-          VAR2: ${{ env.LOCAL_DEV_TOKEN }}
         run: |
-          if [ "$VAR1" = "$VAR2" ]; then
-            echo "Los tokens coinciden"
-          else
-            echo "Los tokens no coinciden"
-          fi
-
-
+          if ($env:VAR1 -ceq $env:LOCAL_DEV_TOKEN) {
+            Write-Output "Los tokens coinciden"
+          } else {
+            Write-Output "Los tokens no coinciden"
+          }

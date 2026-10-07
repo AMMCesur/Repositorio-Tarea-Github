@@ -1,20 +1,23 @@
-name: prueba
+name: Comparar tokens
 
-on:
-  push:
-    branches: feature
-  pull_request:
+on: push
 
 jobs:
-  build:
+  comparar-tokens:
     runs-on: self-hosted
-    steps:      
-      - name: Comparar variables de entorno
+    steps:
+      - name: Comparar DEV_TOKEN con LOCAL_DEV_TOKEN
         shell: powershell
         env:
-          VAR1: ${{ secrets.DEV_TOKEN }}
+          DEV_TOKEN: ${{ secrets.DEV_TOKEN }}
         run: |
-          if ($env:VAR1 -ceq $env:LOCAL_DEV_TOKEN) {
+          if ([string]::IsNullOrEmpty($env:DEV_TOKEN)) {
+            throw "El secret DEV_TOKEN no está configurado."
+          }
+          if ([string]::IsNullOrEmpty($env:LOCAL_DEV_TOKEN)) {
+            throw "LOCAL_DEV_TOKEN no está configurado en el entorno del runner."
+          }
+          if ($env:DEV_TOKEN -ceq $env:LOCAL_DEV_TOKEN) {
             Write-Output "Los tokens coinciden"
           } else {
             Write-Output "Los tokens no coinciden"

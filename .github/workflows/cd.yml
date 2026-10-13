@@ -1,0 +1,76 @@
+name: Cambios a main
+#Comentario para error
+on: 
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: 
+    branches: [main]
+
+
+jobs:
+  actualizar-README:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Obtener repositorio
+        uses: actions/checkout@v4
+
+      - name: Actualizar README.md
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        run: |
+          $readmePath = Join-Path $env:GITHUB_WORKSPACE "README.md"
+          $content = Get-Content -Raw -Path $readmePath
+
+          if ($content -notmatch '\AAppVersion-(?<version>\d+)(?:\r?\n|$)') {
+            throw "README.md no contiene una versión con el formato esperado: AppVersion-N."
+          }
+
+          $version = [long]::Parse($Matches.version)
+          $lineEnding = if ($content.Contains("`r`n")) { "`r`n" } else { "`n" }
+          $updatedContent = [regex]::Replace($content, '(?m)^Fecha y hora del cambio:.*(?:\r?\n|$)', '')
+          $updatedContent = [regex]::Replace($updatedContent, '(?m)^AppVersion-\d+', "AppVersion-$($version + 1)")
+          $timeZone = [TimeZoneInfo]::FindSystemTimeZoneById("Europe/Madrid")
+          $localTime = [TimeZoneInfo]::ConvertTime([DateTimeOffset]::UtcNow, $timeZone)
+          $timeZoneLabel = if ($timeZone.IsDaylightSavingTime($localTime)) { "CEST" } else { "CET" }
+          $timestamp = $localTime.ToString("yyyy-MM-dd HH:mm:ss", [Globalization.CultureInfo]::InvariantCulture) + " $timeZoneLabel"
+          $updatedContent = [regex]::Replace(
+            $updatedContent,
+            '\A(AppVersion-\d+)(?:\r?\n|$)',
+            { param($match) $match.Groups[1].Value + $lineEnding + "Fecha y hora del cambio: $timestamp" + $lineEnding }
+          )
+          [System.IO.File]::WriteAllText(
+            $readmePath,
+            $updatedContent,
+            [System.Text.UTF8Encoding]::new($false)
+          )
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "chore: increment README version"
+          git push
+
+  validar-secret:
+    needs: actualizar-README
+    runs-on: self-hosted
+    steps:
+      - name: Validar secret con variable de entorno
+        shell: powershell -ExecutionPolicy Bypass -File {0}
+        env:
+          PROD_TOKEN: ${{ secrets.PROD_TOKEN }}
+        run: |
+          if ([string]::IsNullOrEmpty($env:PROD_TOKEN)) {
+            throw "El secret PROD_TOKEN no está configurado."
+          }
+          if ([string]::IsNullOrEmpty($env:LOCAL_PROD_TOKEN)) {
+            throw "LOCAL_PROD_TOKEN no está disponible en el entorno del proceso del runner."
+          }
+          if ($env:PROD_TOKEN -ceq $env:LOCAL_PROD_TOKEN) {
+            Write-Output "Los tokens coinciden"
+          } else {
+            Write-Output "Los tokens no coinciden"
+          }
